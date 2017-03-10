@@ -71,20 +71,20 @@ class StaticMechDriver(driver_api.MechanismDriver):
     def update_port_postcommit(self, context):
         port = context.current
         vnic_type = port['binding:vnic_type']
-        if (vnic_type == 'baremetal' and
+        if not (vnic_type == 'baremetal' and
                 port[portbindings.VIF_TYPE] == portbindings.VIF_TYPE_OTHER):
-            binding_profile = port['binding:profile']
-            local_link_information = binding_profile.get(
-                'local_link_information')
-            if not local_link_information:
-                return
+            return
+
+        binding_profile = port['binding:profile']
+        local_link_information = binding_profile.get('local_link_information')
+        if local_link_information:
             switch_info = local_link_information[0].get('switch_info')
             if switch_info != 'static':
                 return
 
-            provisioning_blocks.provisioning_complete(
-                context._plugin_context, port['id'], resources.PORT,
-                'STATICLYBOUND')
+        provisioning_blocks.provisioning_complete(
+            context._plugin_context, port['id'], resources.PORT,
+            'STATICLYBOUND')
 
     def delete_port_precommit(self, context):
         pass
@@ -94,15 +94,16 @@ class StaticMechDriver(driver_api.MechanismDriver):
 
     def bind_port(self, context):
         port = context.current
-        binding_profile = port['binding:profile']
-        local_link_information = binding_profile.get('local_link_information')
         vnic_type = port['binding:vnic_type']
-        if not (vnic_type == 'baremetal' and local_link_information):
+        if vnic_type != 'baremetal':
             return
 
-        switch_info = local_link_information[0].get('switch_info')
-        if switch_info != 'static':
-            return
+        binding_profile = port['binding:profile']
+        local_link_information = binding_profile.get('local_link_information')
+        if local_link_information:
+            switch_info = local_link_information[0].get('switch_info')
+            if switch_info != 'static':
+                return
 
         provisioning_blocks.add_provisioning_component(
             context._plugin_context, port['id'], resources.PORT,
